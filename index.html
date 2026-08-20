@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>読書帖</title>
+
+<!-- PWA / Add to Home Screen support -->
+<meta name="theme-color" content="#1B3550">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="読書帖">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231B3550'/%3E%3Ccircle cx='50' cy='50' r='28' fill='none' stroke='%23C24A3B' stroke-width='5'/%3E%3Ctext x='50' y='63' font-size='34' text-anchor='middle' fill='%23C24A3B'%3E%E8%AA%AD%3C/text%3E%3C/svg%3E"><link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F5F0E6;
+    --paper-deep:#ECE4D2;
+    --ink:#2A2823;
+    --indigo:#2C4A6E;
+    --indigo-deep:#1B3550;
+    --hanko:#A63A2E;
+    --line:#DCD3BE;
+    --muted:#8A8270;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    max-width:720px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    background:
+      linear-gradient(var(--paper), var(--paper));
+    position:relative;
+  }
+  /* subtle paper texture */
+  .app::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(42,40,35,0.02) 0, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(42,40,35,0.02) 0, transparent 40%);
+    z-index:0;
+  }
+
+  header.top{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:calc(20px + env(safe-area-inset-top)) 20px 14px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+    z-index:1;
+  }
+  .brand-mark{
+    writing-mode:vertical-rl;
+    text-orientation:upright;
+    font-family:'Shippori Mincho', serif;
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:0.15em;
+    color:var(--indigo-deep);
+    line-height:1;
+  }
+  .brand-sub{
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:0.08em;
+    line-height:1.6;
+  }
+  .brand-sub .en{
+    display:block;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.14em;
+    color:var(--muted);
+    margin-top:2px;
+  }
+  .io-actions{
+    margin-left:auto;
+    display:flex;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .io-actions button, .io-actions label{
+    font-size:11px;
+    color:var(--indigo);
+    background:none;
+    border:1px solid var(--indigo);
+    padding:6px 10px;
+    border-radius:2px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+
+  /* Shelf */
+  .shelf-wrap{
+    position:relative;
+    z-index:1;
+    padding:16px 0 4px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, var(--paper-deep), var(--paper) 92%);
+  }
+  .shelf{
+    display:flex;
+    align-items:flex-end;
+    gap:6px;
+    padding:0 20px 14px;
+    overflow-x:auto;
+    scrollbar-width:thin;
+  }
+  .shelf::after{
+    content:'';
+    flex:0 0 2px;
+  }
+  .shelf-board{
+    height:3px;
+    background:var(--muted);
+    opacity:0.35;
+    margin:0 20px;
+    border-radius:2px;
+  }
+  .spine{
+    flex:0 0 auto;
+    width:38px;
+    height:120px;
+    border-radius:3px 3px 2px 2px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:8px 0;
+    cursor:pointer;
+    position:relative;
+    box-shadow:1px 0 0 rgba(0,0,0,0.06) inset, -1px 0 0 rgba(255,255,255,0.08) inset;
+    transition:transform 0.15s ease;
+  }
+  .spine:active{ transform:translateY(2px); }
+  .spine.selected{ transform:translateY(-6px); box-shadow:0 6px 10px rgba(27,53,80,0.25); }
+  .spine-title{
+    writing-mode:vertical-rl;
+    text-orientation:mixed;
+    font-size:12.5px;
+    font-weight:500;
+    color:#F5F0E6;
+    max-height:100px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    letter-spacing:0.02em;
+  }
+  .hanko{
+    position:absolute;
+    bottom:6px;
+    left:50%;
+    transform:translateX(-50%) rotate(-8deg);
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    border:1.5px solid var(--hanko);
+    color:var(--hanko);
+    background:rgba(245,240,230,0.15);
+    font-size:8px;
+    font-family:'Shippori Mincho', serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    box-shadow:0 0 0 1px rgba(166,58,46,0.15);
+  }
+  .spine-add{
+    flex:0 0 auto;
+    width:38px;
+    height:120px;
+    border:1.5px dashed var(--muted);
+    border-radius:3px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:20px;
+    cursor:pointer;
+    background:transparent;
+    opacity:0.7;
+  }
+  .spine-add:active{ opacity:1; }
+
+  /* Main detail area */
+  main{
+    flex:1;
+    position:relative;
+    z-index:1;
+    padding:18px 20px 40px;
+  }
+  .empty-state{
+    text-align:center;
+    padding:60px 20px;
+    color:var(--muted);
+  }
+  .empty-state .em-title{
+    font-family:'Shippori Mincho', serif;
+    font-size:18px;
+    color:var(--indigo-deep);
+    margin-bottom:8px;
+  }
+  .empty-state .em-sub{ font-size:13px; line-height:1.8; }
+
+  .book-head{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-bottom:16px;
+  }
+  .book-title{
+    font-family:'Shippori Mincho', serif;
+    font-size:22px;
+    font-weight:700;
+    color:var(--indigo-deep);
+    line-height:1.4;
+    outline:none;
+  }
+  .book-author{
+    font-size:13px;
+    color:var(--muted);
+    outline:none;
+  }
+  .book-meta-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:6px;
+    flex-wrap:wrap;
+  }
+  .status-pill{
+    font-size:12px;
+    padding:5px 12px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    cursor:pointer;
+    background:#fff;
+    color:var(--muted);
+    letter-spacing:0.03em;
+  }
+  .status-pill.want{ border-color:var(--muted); color:var(--muted); }
+  .status-pill.reading{ background:var(--indigo); border-color:var(--indigo); color:#fff; }
+  .status-pill.done{ background:var(--hanko); border-color:var(--hanko); color:#fff; }
+  .delete-book{
+    margin-left:auto;
+    font-size:12px;
+    color:var(--muted);
+    background:none;
+    border:none;
+    cursor:pointer;
+    text-decoration:underline;
+    opacity:0.6;
+  }
+
+  /* Tabs */
+  .tabs{
+    display:flex;
+    gap:2px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:16px;
+  }
+  .tab-btn{
+    flex:1;
+    background:none;
+    border:none;
+    padding:10px 4px;
+    font-size:13px;
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    color:var(--muted);
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    letter-spacing:0.02em;
+  }
+  .tab-btn.active{
+    color:var(--indigo-deep);
+    border-bottom-color:var(--hanko);
+    font-weight:700;
+  }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  /* Excerpts */
+  .excerpt-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-left:3px solid var(--indigo);
+    border-radius:2px;
+    padding:14px 16px;
+    margin-bottom:12px;
+    position:relative;
+  }
+  .excerpt-text{
+    font-family:'Shippori Mincho', serif;
+    font-size:15px;
+    line-height:1.9;
+    color:var(--ink);
+    white-space:pre-wrap;
+    outline:none;
+  }
+  .excerpt-foot{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:8px;
+  }
+  .excerpt-page{
+    font-size:11px;
+    color:var(--muted);
+    outline:none;
+  }
+  .item-delete{
+    font-size:11px;
+    color:var(--muted);
+    background:none;
+    border:none;
+    cursor:pointer;
+    opacity:0.55;
+  }
+
+  /* Kanji */
+  .kanji-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:12px 16px;
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .kanji-ruby{
+    font-family:'Shippori Mincho', serif;
+    font-size:22px;
+    color:var(--ink);
+    ruby-position:over;
+    outline:none;
+    flex:0 0 auto;
+  }
+  .kanji-ruby rt{
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    font-size:11px;
+    color:var(--indigo);
+  }
+  .kanji-meaning{
+    flex:1;
+    font-size:12.5px;
+    color:var(--muted);
+    outline:none;
+  }
+
+  /* Review */
+  .review-box{
+    width:100%;
+    min-height:160px;
+    border:1px solid var(--line);
+    background:#fff;
+    border-radius:2px;
+    padding:14px 16px;
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    font-size:14px;
+    line-height:1.9;
+    color:var(--ink);
+    resize:vertical;
+    outline:none;
+  }
+  .review-box:focus{ border-color:var(--indigo); }
+  .save-hint{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:6px;
+    min-height:14px;
+  }
+
+  /* Add forms */
+  .add-form{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-bottom:16px;
+    background:var(--paper-deep);
+    padding:14px;
+    border-radius:4px;
+  }
+  .add-form input, .add-form textarea{
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:9px 10px;
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    font-size:13px;
+    background:#fff;
+    outline:none;
+  }
+  .add-form textarea{
+    min-height:70px;
+    font-family:'Shippori Mincho', serif;
+    resize:vertical;
+  }
+  .add-form .row{ display:flex; gap:8px; }
+  .add-form .row input{ flex:1; }
+  .btn{
+    background:var(--indigo);
+    color:#fff;
+    border:none;
+    padding:9px 16px;
+    border-radius:2px;
+    font-size:13px;
+    cursor:pointer;
+    align-self:flex-start;
+    letter-spacing:0.03em;
+  }
+  .btn:active{ background:var(--indigo-deep); }
+  .btn-outline{
+    background:none;
+    border:1px solid var(--indigo);
+    color:var(--indigo);
+    padding:8px 14px;
+    border-radius:2px;
+    font-size:12.5px;
+    cursor:pointer;
+    margin-bottom:14px;
+  }
+
+  .loading{
+    text-align:center;
+    padding:40px;
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  ::placeholder{ color:#b8b0a0; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand-mark">読書帖</div>
+    <div class="brand-sub">抜き書き・漢字・感想を残す<span class="en">Reading Journal</span></div>
+    <div class="io-actions">
+      <button id="export-btn" title="ファイルに書き出す">書き出す</button>
+      <label id="import-btn" title="ファイルから読み込む">読み込む<input type="file" id="import-input" accept="application/json" hidden></label>
+    </div>
+  </header>
+
+  <div class="shelf-wrap">
+    <div id="shelf" class="shelf"></div>
+    <div class="shelf-board"></div>
+  </div>
+
+  <main id="main">
+    <div class="loading">読み込み中…</div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const SPINE_COLORS = ['#2C4A6E','#4A5D3A','#6E4A2C','#5A3E5C','#2C6E63','#6E2C3F','#3E4A6E','#7A5A2C'];
+
+  let books = [];       // [{id,title,author,status,createdAt}]
+  let details = {};     // id -> {excerpts:[], kanji:[], review:''}
+  let currentId = null;
+  let currentTab = 'excerpts';
+  let saveTimer = null;
+
+  const shelfEl = document.getElementById('shelf');
+  const mainEl = document.getElementById('main');
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  // Persistence uses the browser's own localStorage. This app is meant to
+  // run standalone (added to the home screen in Safari/Chrome), where
+  // localStorage works normally and persists between launches. If it's
+  // ever unavailable (e.g. private browsing, or previewed inside a
+  // sandboxed iframe), the app keeps working in-memory for the session and
+  // the 書き出す/読み込む (export/import) buttons remain the safety net.
+  let storageOk = true;
+  function showSaveWarning(){
+    if(document.getElementById('save-warning')) return;
+    const w = document.createElement('div');
+    w.id = 'save-warning';
+    w.style.cssText = 'background:#A63A2E;color:#fff;font-size:12px;padding:8px 20px;text-align:center;position:relative;z-index:2;';
+    w.textContent = 'この画面では自動保存が使えません。上の「書き出す」からファイルに保存しておくことをおすすめします。';
+    document.querySelector('.app').insertBefore(w, document.querySelector('.shelf-wrap'));
+  }
+  function clearSaveWarning(){
+    const w = document.getElementById('save-warning');
+    if(w) w.remove();
+  }
+
+  async function storageSet(key, value){
+    try{
+      localStorage.setItem(key, value);
+      storageOk = true;
+      clearSaveWarning();
+      return true;
+    }catch(e){
+      console.error('localStorage set failed', key, e);
+      storageOk = false;
+      showSaveWarning();
+      return false;
+    }
+  }
+
+  async function storageGet(key){
+    try{
+      const value = localStorage.getItem(key);
+      return value === null ? null : { key, value };
+    }catch(e){
+      return null;
+    }
+  }
+
+  async function storageDelete(key){
+    try{ localStorage.removeItem(key); }catch(e){}
+  }
+
+  function colorFor(title){
+    let h = 0;
+    for(let i=0;i<title.length;i++){ h = title.charCodeAt(i) + ((h<<5)-h); }
+    return SPINE_COLORS[Math.abs(h) % SPINE_COLORS.length];
+  }
+
+  async function loadBooks(){
+    const res = await storageGet('books');
+    books = res && res.value ? JSON.parse(res.value) : [];
+  }
+
+  async function saveBooks(){
+    await storageSet('books', JSON.stringify(books));
+  }
+
+  async function loadDetail(id){
+    if(details[id]) return details[id];
+    const res = await storageGet('detail:'+id);
+    details[id] = res && res.value ? JSON.parse(res.value) : {excerpts:[], kanji:[], review:''};
+    return details[id];
+  }
+
+  async function saveDetail(id){
+    await storageSet('detail:'+id, JSON.stringify(details[id]));
+  }
+
+  function renderShelf(){
+    shelfEl.innerHTML = '';
+    books.forEach(b=>{
+      const spine = document.createElement('div');
+      spine.className = 'spine' + (b.id===currentId ? ' selected':'');
+      spine.style.background = colorFor(b.title||'?');
+      spine.onclick = ()=>selectBook(b.id);
+      const t = document.createElement('div');
+      t.className = 'spine-title';
+      t.textContent = b.title || '無題';
+      spine.appendChild(t);
+      if(b.status==='done'){
+        const h = document.createElement('div');
+        h.className='hanko';
+        h.textContent='読';
+        spine.appendChild(h);
+      }
+      shelfEl.appendChild(spine);
+    });
+    const addBtn = document.createElement('div');
+    addBtn.className = 'spine-add';
+    addBtn.textContent = '＋';
+    addBtn.onclick = showAddForm;
+    shelfEl.appendChild(addBtn);
+  }
+
+  function showAddForm(){
+    mainEl.innerHTML = '';
+    const form = document.createElement('div');
+    form.className = 'add-form';
+    form.innerHTML = `
+      <input id="new-title" type="text" placeholder="書名">
+      <input id="new-author" type="text" placeholder="著者">
+      <button class="btn" id="new-save">本棚に追加</button>
+    `;
+    mainEl.appendChild(form);
+    document.getElementById('new-title').focus();
+    document.getElementById('new-save').onclick = async ()=>{
+      const title = document.getElementById('new-title').value.trim();
+      const author = document.getElementById('new-author').value.trim();
+      if(!title) return;
+      const book = { id: uid(), title, author, status:'want', createdAt: Date.now() };
+      books.push(book);
+      details[book.id] = {excerpts:[], kanji:[], review:''};
+      await saveBooks();
+      await saveDetail(book.id);
+      currentId = book.id;
+      currentTab = 'excerpts';
+      renderShelf();
+      renderDetail();
+    };
+  }
+
+  function cycleStatus(status){
+    if(status==='want') return 'reading';
+    if(status==='reading') return 'done';
+    return 'want';
+  }
+  function statusLabel(status){
+    return status==='want' ? '読みたい' : status==='reading' ? '読書中' : '読了';
+  }
+
+  async function selectBook(id){
+    currentId = id;
+    currentTab = 'excerpts';
+    await loadDetail(id);
+    renderShelf();
+    renderDetail();
+  }
+
+  function renderDetail(){
+    if(!currentId){
+      if(books.length===0){
+        mainEl.innerHTML = `
+          <div class="empty-state">
+            <div class="em-title">まだ本がありません</div>
+            <div class="em-sub">右上の「＋」から、読んだ本や読んでいる本を<br>棚に並べてみましょう。</div>
+          </div>`;
+      } else {
+        mainEl.innerHTML = `<div class="empty-state"><div class="em-sub">棚から本を選んでください</div></div>`;
+      }
+      return;
+    }
+    const book = books.find(b=>b.id===currentId);
+    const detail = details[currentId] || {excerpts:[], kanji:[], review:''};
+
+    mainEl.innerHTML = '';
+
+    // Head
+    const head = document.createElement('div');
+    head.className = 'book-head';
+    head.innerHTML = `
+      <div class="book-title" contenteditable="true" data-field="title">${escapeHtml(book.title)}</div>
+      <div class="book-author" contenteditable="true" data-field="author">${escapeHtml(book.author||'著者未設定')}</div>
+      <div class="book-meta-row">
+        <button class="status-pill ${book.status}" id="status-pill">${statusLabel(book.status)}</button>
+        <button class="delete-book" id="del-book">本棚から削除</button>
+      </div>
+    `;
+    mainEl.appendChild(head);
+
+    head.querySelector('[data-field="title"]').addEventListener('blur', async (e)=>{
+      book.title = e.target.textContent.trim() || '無題';
+      await saveBooks(); renderShelf();
+    });
+    head.querySelector('[data-field="author"]').addEventListener('blur', async (e)=>{
+      book.author = e.target.textContent.trim();
+      await saveBooks();
+    });
+    document.getElementById('status-pill').onclick = async ()=>{
+      book.status = cycleStatus(book.status);
+      await saveBooks();
+      renderShelf(); renderDetail();
+    };
+    document.getElementById('del-book').onclick = async ()=>{
+      if(!confirm(`「${book.title}」を本棚から削除しますか？`)) return;
+      books = books.filter(b=>b.id!==book.id);
+      delete details[book.id];
+      await storageDelete('detail:'+book.id);
+      await saveBooks();
+      currentId = null;
+      renderShelf(); renderDetail();
+    };
+
+    // Tabs
+    const tabs = document.createElement('div');
+    tabs.className = 'tabs';
+    const tabDefs = [
+      {key:'excerpts', label:'抜き書き'},
+      {key:'kanji', label:'漢字メモ'},
+      {key:'review', label:'感想'},
+    ];
+    tabDefs.forEach(t=>{
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn' + (currentTab===t.key?' active':'');
+      btn.textContent = t.label;
+      btn.onclick = ()=>{ currentTab = t.key; renderDetail(); };
+      tabs.appendChild(btn);
+    });
+    mainEl.appendChild(tabs);
+
+    if(currentTab==='excerpts') renderExcerptsPanel(detail);
+    else if(currentTab==='kanji') renderKanjiPanel(detail);
+    else renderReviewPanel(detail);
+  }
+
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  function renderExcerptsPanel(detail){
+    const panel = document.createElement('div');
+    panel.className = 'panel active';
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-outline';
+    addBtn.textContent = '＋ 抜き書きを追加';
+    addBtn.onclick = ()=>{
+      const form = document.createElement('div');
+      form.className = 'add-form';
+      form.innerHTML = `
+        <textarea id="ex-text" placeholder="心に残った文章を書き写す"></textarea>
+        <div class="row"><input id="ex-page" type="text" placeholder="ページ (任意)" style="max-width:120px;"></div>
+        <button class="btn" id="ex-save">追加する</button>
+      `;
+      addBtn.replaceWith(form);
+      document.getElementById('ex-text').focus();
+      document.getElementById('ex-save').onclick = async ()=>{
+        const text = document.getElementById('ex-text').value.trim();
+        if(!text) return;
+        const page = document.getElementById('ex-page').value.trim();
+        detail.excerpts.unshift({id:uid(), text, page});
+        await saveDetail(currentId);
+        renderDetail();
+      };
+    };
+    panel.appendChild(addBtn);
+
+    if(detail.excerpts.length===0){
+      const p = document.createElement('div');
+      p.className = 'save-hint';
+      p.style.marginTop='8px';
+      p.textContent = '良い文章が見つかったら、ここに書き写しましょう。';
+      panel.appendChild(p);
+    }
+
+    detail.excerpts.forEach(ex=>{
+      const card = document.createElement('div');
+      card.className = 'excerpt-card';
+      card.innerHTML = `
+        <div class="excerpt-text" contenteditable="true">${escapeHtml(ex.text)}</div>
+        <div class="excerpt-foot">
+          <span class="excerpt-page" contenteditable="true">${ex.page ? 'p.'+escapeHtml(ex.page) : 'ページ未記入'}</span>
+          <button class="item-delete">削除</button>
+        </div>
+      `;
+      card.querySelector('.excerpt-text').addEventListener('blur', async (e)=>{
+        ex.text = e.target.textContent.trim();
+        await saveDetail(currentId);
+      });
+      card.querySelector('.excerpt-page').addEventListener('blur', async (e)=>{
+        const raw = e.target.textContent.replace(/^p\./,'').replace('ページ未記入','').trim();
+        ex.page = raw;
+        await saveDetail(currentId);
+      });
+      card.querySelector('.item-delete').onclick = async ()=>{
+        detail.excerpts = detail.excerpts.filter(x=>x.id!==ex.id);
+        await saveDetail(currentId);
+        renderDetail();
+      };
+      panel.appendChild(card);
+    });
+
+    mainEl.appendChild(panel);
+  }
+
+  function renderKanjiPanel(detail){
+    const panel = document.createElement('div');
+    panel.className = 'panel active';
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-outline';
+    addBtn.textContent = '＋ 漢字を追加';
+    addBtn.onclick = ()=>{
+      const form = document.createElement('div');
+      form.className = 'add-form';
+      form.innerHTML = `
+        <div class="row">
+          <input id="kj-word" type="text" placeholder="読めなかった言葉">
+          <input id="kj-reading" type="text" placeholder="読み方">
+        </div>
+        <input id="kj-meaning" type="text" placeholder="意味 (任意)">
+        <button class="btn" id="kj-save">追加する</button>
+      `;
+      addBtn.replaceWith(form);
+      document.getElementById('kj-word').focus();
+      document.getElementById('kj-save').onclick = async ()=>{
+        const word = document.getElementById('kj-word').value.trim();
+        const reading = document.getElementById('kj-reading').value.trim();
+        if(!word) return;
+        const meaning = document.getElementById('kj-meaning').value.trim();
+        detail.kanji.unshift({id:uid(), word, reading, meaning});
+        await saveDetail(currentId);
+        renderDetail();
+      };
+    };
+    panel.appendChild(addBtn);
+
+    if(detail.kanji.length===0){
+      const p = document.createElement('div');
+      p.className = 'save-hint';
+      p.style.marginTop='8px';
+      p.textContent = '読めなかった漢字や言葉をメモしておきましょう。';
+      panel.appendChild(p);
+    }
+
+    detail.kanji.forEach(kj=>{
+      const card = document.createElement('div');
+      card.className = 'kanji-card';
+      card.innerHTML = `
+        <ruby class="kanji-ruby">${escapeHtml(kj.word)}<rt>${escapeHtml(kj.reading)}</rt></ruby>
+        <span class="kanji-meaning" contenteditable="true">${kj.meaning ? escapeHtml(kj.meaning) : '意味を書く'}</span>
+        <button class="item-delete">削除</button>
+      `;
+      card.querySelector('.kanji-meaning').addEventListener('blur', async (e)=>{
+        const val = e.target.textContent.trim();
+        kj.meaning = (val==='意味を書く') ? '' : val;
+        await saveDetail(currentId);
+      });
+      card.querySelector('.item-delete').onclick = async ()=>{
+        detail.kanji = detail.kanji.filter(x=>x.id!==kj.id);
+        await saveDetail(currentId);
+        renderDetail();
+      };
+      panel.appendChild(card);
+    });
+
+    mainEl.appendChild(panel);
+  }
+
+  function renderReviewPanel(detail){
+    const panel = document.createElement('div');
+    panel.className = 'panel active';
+    const box = document.createElement('textarea');
+    box.className = 'review-box';
+    box.placeholder = 'この本の感想を書きましょう。印象に残った場面、考えたことなど自由に。';
+    box.value = detail.review || '';
+    const hint = document.createElement('div');
+    hint.className = 'save-hint';
+    box.addEventListener('input', ()=>{
+      detail.review = box.value;
+      hint.textContent = '編集中…';
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async ()=>{
+        await saveDetail(currentId);
+        hint.textContent = '保存しました';
+        setTimeout(()=>{ if(hint.textContent==='保存しました') hint.textContent=''; }, 1500);
+      }, 600);
+    });
+    panel.appendChild(box);
+    panel.appendChild(hint);
+    mainEl.appendChild(panel);
+  }
+
+  async function exportData(){
+    for(const b of books){ await loadDetail(b.id); }
+    const payload = { exportedAt: new Date().toISOString(), books, details };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `読書帖_${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(file){
+    const reader = new FileReader();
+    reader.onload = async (e)=>{
+      try{
+        const payload = JSON.parse(e.target.result);
+        if(!Array.isArray(payload.books)) throw new Error('invalid file');
+        books = payload.books;
+        details = payload.details || {};
+        currentId = books.length ? books[0].id : null;
+        currentTab = 'excerpts';
+        await saveBooks();
+        for(const b of books){ await saveDetail(b.id); }
+        renderShelf();
+        renderDetail();
+      }catch(err){
+        alert('ファイルの読み込みに失敗しました。読書帖から書き出したJSONファイルを選んでください。');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  document.getElementById('export-btn').onclick = exportData;
+  document.getElementById('import-input').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(file) importData(file);
+    e.target.value = '';
+  });
+
+  async function init(){
+    await loadBooks();
+    renderShelf();
+    renderDetail();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
