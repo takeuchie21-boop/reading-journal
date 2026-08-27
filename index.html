@@ -329,6 +329,18 @@
     opacity:0.55;
   }
 
+  .excerpt-card, .kanji-card{
+    touch-action: pan-y;
+  }
+  .dragging-card{
+    opacity:0.9;
+    box-shadow:0 10px 24px rgba(27,53,80,0.28);
+    position:relative;
+  }
+  .drop-settle{
+    transition: transform 0.18s ease;
+  }
+
   .kanji-card{
     background:#fff;
     border:1px solid var(--line);
@@ -338,6 +350,7 @@
     display:flex;
     flex-direction:column;
     gap:8px;
+    position:relative;
   }
   .kanji-word-row{
     display:flex;
@@ -528,6 +541,71 @@
       }
     }
   }, {passive:true});
+
+  function enableReorder(container, cardSelector, itemsArray, onDone){
+    let longPressTimer = null;
+    let dragEl = null;
+    let dragging = false;
+    let startTouchY = 0;
+
+    function cards(){ return Array.from(container.querySelectorAll(cardSelector)); }
+    function clearTimer(){ clearTimeout(longPressTimer); longPressTimer = null; }
+
+    container.addEventListener('touchstart', (e)=>{
+      const card = e.target.closest(cardSelector);
+      if(!card || (e.target.closest && e.target.closest('[contenteditable="true"], input, textarea, button'))) return;
+      startTouchY = e.touches[0].clientY;
+      clearTimer();
+      longPressTimer = setTimeout(()=>{
+        dragging = true;
+        dragEl = card;
+        card.classList.add('dragging-card');
+        card.style.zIndex = 50;
+        if(navigator.vibrate) navigator.vibrate(10);
+      }, 450);
+    }, {passive:true});
+
+    container.addEventListener('touchmove', (e)=>{
+      if(dragging){
+        e.preventDefault();
+        const touchY = e.touches[0].clientY;
+        dragEl.style.transform = `translateY(${touchY - startTouchY}px)`;
+        const siblings = cards().filter(c=>c!==dragEl);
+        for(const sib of siblings){
+          const rect = sib.getBoundingClientRect();
+          const mid = rect.top + rect.height/2;
+          const dragIsAfter = !!(sib.compareDocumentPosition(dragEl) & Node.DOCUMENT_POSITION_FOLLOWING);
+          if(touchY < mid && dragIsAfter){
+            container.insertBefore(dragEl, sib);
+            break;
+          } else if(touchY > mid && !dragIsAfter){
+            container.insertBefore(dragEl, sib.nextSibling);
+            break;
+          }
+        }
+      } else if(longPressTimer){
+        if(Math.abs(e.touches[0].clientY - startTouchY) > 10) clearTimer();
+      }
+    }, {passive:false});
+
+    function endDrag(){
+      clearTimer();
+      if(!dragging) return;
+      dragging = false;
+      const el = dragEl;
+      el.classList.remove('dragging-card');
+      el.classList.add('drop-settle');
+      el.style.transform = '';
+      el.style.zIndex = '';
+      setTimeout(()=>{ el.classList.remove('drop-settle'); }, 200);
+      const idOrder = cards().map(c=>c.dataset.id);
+      itemsArray.sort((a,b)=> idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
+      dragEl = null;
+      onDone();
+    }
+    container.addEventListener('touchend', endDrag);
+    container.addEventListener('touchcancel', endDrag);
+  }
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -782,11 +860,19 @@
       p.style.marginTop='8px';
       p.textContent = '良い文章が見つかったら、ここに書き写しましょう。';
       panel.appendChild(p);
+    } else if(detail.excerpts.length > 1){
+      const p = document.createElement('div');
+      p.className = 'save-hint';
+      p.style.marginTop='-4px';
+      p.style.marginBottom='8px';
+      p.textContent = 'カードを長押しすると並べ替えられます。';
+      panel.appendChild(p);
     }
 
     detail.excerpts.forEach(ex=>{
       const card = document.createElement('div');
       card.className = 'excerpt-card';
+      card.dataset.id = ex.id;
       card.innerHTML = `
         <div class="excerpt-text" contenteditable="true">${escapeHtml(ex.text)}</div>
         <div class="excerpt-foot">
@@ -813,6 +899,7 @@
     });
 
     mainEl.appendChild(panel);
+    enableReorder(panel, '.excerpt-card', detail.excerpts, ()=>{ saveDetail(currentId); });
   }
 
   function renderKanjiPanel(detail){
@@ -853,11 +940,19 @@
       p.style.marginTop='8px';
       p.textContent = '読めなかった漢字や言葉をメモしておきましょう。';
       panel.appendChild(p);
+    } else if(detail.kanji.length > 1){
+      const p = document.createElement('div');
+      p.className = 'save-hint';
+      p.style.marginTop='-4px';
+      p.style.marginBottom='8px';
+      p.textContent = 'カードを長押しすると並べ替えられます。';
+      panel.appendChild(p);
     }
 
     detail.kanji.forEach(kj=>{
       const card = document.createElement('div');
       card.className = 'kanji-card';
+      card.dataset.id = kj.id;
       card.innerHTML = `
         <div class="kanji-word-row">
           <span class="kanji-word" contenteditable="true">${escapeHtml(kj.word)}</span>
@@ -892,6 +987,7 @@
     });
 
     mainEl.appendChild(panel);
+    enableReorder(panel, '.kanji-card', detail.kanji, ()=>{ saveDetail(currentId); });
   }
 
   function renderReviewPanel(detail){
