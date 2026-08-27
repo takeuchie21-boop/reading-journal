@@ -43,7 +43,6 @@
       linear-gradient(var(--paper), var(--paper));
     position:relative;
   }
-  /* subtle paper texture */
   .app::before{
     content:'';
     position:fixed;
@@ -105,7 +104,6 @@
     white-space:nowrap;
   }
 
-  /* Shelf */
   .shelf-wrap{
     position:relative;
     z-index:1;
@@ -195,7 +193,6 @@
   }
   .spine-add:active{ opacity:1; }
 
-  /* Main detail area */
   main{
     flex:1;
     position:relative;
@@ -230,7 +227,7 @@
     outline:none;
   }
   .book-author{
-    font-size:13px;
+    font-size:16px;
     color:var(--muted);
     outline:none;
   }
@@ -265,7 +262,6 @@
     opacity:0.6;
   }
 
-  /* Tabs */
   .tabs{
     display:flex;
     gap:2px;
@@ -293,7 +289,6 @@
   .panel{ display:none; }
   .panel.active{ display:block; }
 
-  /* Excerpts */
   .excerpt-card{
     background:#fff;
     border:1px solid var(--line);
@@ -305,7 +300,7 @@
   }
   .excerpt-text{
     font-family:'Shippori Mincho', serif;
-    font-size:15px;
+    font-size:16px;
     line-height:1.9;
     color:var(--ink);
     white-space:pre-wrap;
@@ -318,7 +313,7 @@
     margin-top:8px;
   }
   .excerpt-page{
-    font-size:11px;
+    font-size:16px;
     color:var(--muted);
     outline:none;
   }
@@ -331,7 +326,6 @@
     opacity:0.55;
   }
 
-  /* Kanji */
   .kanji-card{
     background:#fff;
     border:1px solid var(--line);
@@ -339,30 +333,51 @@
     padding:12px 16px;
     margin-bottom:10px;
     display:flex;
-    align-items:center;
-    gap:12px;
+    flex-direction:column;
+    gap:8px;
   }
-  .kanji-ruby{
+  .kanji-word-row{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  .kanji-word{
     font-family:'Shippori Mincho', serif;
-    font-size:22px;
+    font-size:20px;
     color:var(--ink);
-    ruby-position:over;
     outline:none;
-    flex:0 0 auto;
+    flex:0 1 auto;
+    min-width:2em;
+    border-bottom:1px solid transparent;
   }
-  .kanji-ruby rt{
+  .kanji-word:focus{ border-bottom-color:var(--indigo); }
+  .kanji-reading{
     font-family:'Zen Kaku Gothic New', sans-serif;
-    font-size:11px;
+    font-size:16px;
     color:var(--indigo);
+    outline:none;
+    flex:1 1 auto;
+    min-width:0;
+    border-bottom:1px solid transparent;
+  }
+  .kanji-reading:focus{ border-bottom-color:var(--indigo); }
+  .kanji-reading:empty::before{
+    content:'よみがな';
+    color:#b8b0a0;
+  }
+  .kanji-meaning-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
   }
   .kanji-meaning{
     flex:1;
-    font-size:12.5px;
+    font-size:16px;
     color:var(--muted);
     outline:none;
+    min-width:0;
   }
 
-  /* Review */
   .review-box{
     width:100%;
     min-height:160px;
@@ -371,7 +386,7 @@
     border-radius:2px;
     padding:14px 16px;
     font-family:'Zen Kaku Gothic New', sans-serif;
-    font-size:14px;
+    font-size:16px;
     line-height:1.9;
     color:var(--ink);
     resize:vertical;
@@ -385,7 +400,6 @@
     min-height:14px;
   }
 
-  /* Add forms */
   .add-form{
     display:flex;
     flex-direction:column;
@@ -400,9 +414,11 @@
     border-radius:2px;
     padding:9px 10px;
     font-family:'Zen Kaku Gothic New', sans-serif;
-    font-size:13px;
+    font-size:16px;
     background:#fff;
     outline:none;
+    width:100%;
+    min-width:0;
   }
   .add-form textarea{
     min-height:70px;
@@ -410,7 +426,8 @@
     resize:vertical;
   }
   .add-form .row{ display:flex; gap:8px; }
-  .add-form .row input{ flex:1; }
+  .add-form .row input{ flex:1; min-width:0; }
+  .add-form .row input.word-input{ flex:0 0 34%; }
   .btn{
     background:var(--indigo);
     color:#fff;
@@ -473,8 +490,8 @@
 (function(){
   const SPINE_COLORS = ['#2C4A6E','#4A5D3A','#6E4A2C','#5A3E5C','#2C6E63','#6E2C3F','#3E4A6E','#7A5A2C'];
 
-  let books = [];       // [{id,title,author,status,createdAt}]
-  let details = {};     // id -> {excerpts:[], kanji:[], review:''}
+  let books = [];
+  let details = {};
   let currentId = null;
   let currentTab = 'excerpts';
   let saveTimer = null;
@@ -484,12 +501,6 @@
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
-  // Persistence uses the browser's own localStorage. This app is meant to
-  // run standalone (added to the home screen in Safari/Chrome), where
-  // localStorage works normally and persists between launches. If it's
-  // ever unavailable (e.g. private browsing, or previewed inside a
-  // sandboxed iframe), the app keeps working in-memory for the session and
-  // the 書き出す/読み込む (export/import) buttons remain the safety net.
   let storageOk = true;
   function showSaveWarning(){
     if(document.getElementById('save-warning')) return;
@@ -645,7 +656,6 @@
 
     mainEl.innerHTML = '';
 
-    // Head
     const head = document.createElement('div');
     head.className = 'book-head';
     head.innerHTML = `
@@ -681,7 +691,6 @@
       renderShelf(); renderDetail();
     };
 
-    // Tabs
     const tabs = document.createElement('div');
     tabs.className = 'tabs';
     const tabDefs = [
@@ -787,7 +796,7 @@
       form.className = 'add-form';
       form.innerHTML = `
         <div class="row">
-          <input id="kj-word" type="text" placeholder="読めなかった言葉">
+          <input id="kj-word" class="word-input" type="text" placeholder="言葉">
           <input id="kj-reading" type="text" placeholder="読み方">
         </div>
         <input id="kj-meaning" type="text" placeholder="意味 (任意)">
@@ -819,13 +828,31 @@
       const card = document.createElement('div');
       card.className = 'kanji-card';
       card.innerHTML = `
-        <ruby class="kanji-ruby">${escapeHtml(kj.word)}<rt>${escapeHtml(kj.reading)}</rt></ruby>
-        <span class="kanji-meaning" contenteditable="true">${kj.meaning ? escapeHtml(kj.meaning) : '意味を書く'}</span>
-        <button class="item-delete">削除</button>
+        <div class="kanji-word-row">
+          <span class="kanji-word" contenteditable="true">${escapeHtml(kj.word)}</span>
+          <span class="kanji-reading" contenteditable="true">${escapeHtml(kj.reading)}</span>
+        </div>
+        <div class="kanji-meaning-row">
+          <span class="kanji-meaning" contenteditable="true">${kj.meaning ? escapeHtml(kj.meaning) : '意味を書く'}</span>
+          <button class="item-delete">削除</button>
+        </div>
       `;
+      card.querySelector('.kanji-word').addEventListener('blur', async (e)=>{
+        kj.word = e.target.textContent.trim() || kj.word;
+        e.target.textContent = kj.word;
+        await saveDetail(currentId);
+      });
+      card.querySelector('.kanji-reading').addEventListener('blur', async (e)=>{
+        kj.reading = e.target.textContent.trim();
+        await saveDetail(currentId);
+      });
+      card.querySelector('.kanji-meaning').addEventListener('focus', (e)=>{
+        if(e.target.textContent==='意味を書く') e.target.textContent='';
+      });
       card.querySelector('.kanji-meaning').addEventListener('blur', async (e)=>{
         const val = e.target.textContent.trim();
-        kj.meaning = (val==='意味を書く') ? '' : val;
+        kj.meaning = val;
+        e.target.textContent = val || '意味を書く';
         await saveDetail(currentId);
       });
       card.querySelector('.item-delete').onclick = async ()=>{
