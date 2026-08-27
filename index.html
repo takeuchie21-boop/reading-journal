@@ -372,12 +372,13 @@
   }
   .kanji-meaning{
     flex:1;
-    font-size:16px;
+    font-size:13px;
     color:var(--muted);
     outline:none;
     min-width:0;
     min-height:1.3em;
   }
+  .kanji-meaning:focus{ font-size:16px; }
 
   .review-box{
     width:100%;
@@ -500,6 +501,33 @@
 
   const shelfEl = document.getElementById('shelf');
   const mainEl = document.getElementById('main');
+
+  const TAB_ORDER = ['excerpts', 'kanji', 'review'];
+  let touchStartX = 0, touchStartY = 0, touchStartBlocked = false;
+  mainEl.addEventListener('touchstart', (e)=>{
+    if(!currentId || e.touches.length !== 1) { touchStartBlocked = true; return; }
+    const t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    const target = e.target;
+    touchStartBlocked = !!(target.closest && target.closest('[contenteditable="true"], input, textarea, button'));
+  }, {passive:true});
+  mainEl.addEventListener('touchend', (e)=>{
+    if(!currentId || touchStartBlocked) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5){
+      const idx = TAB_ORDER.indexOf(currentTab);
+      const newIdx = dx < 0
+        ? Math.min(idx + 1, TAB_ORDER.length - 1)
+        : Math.max(idx - 1, 0);
+      if(newIdx !== idx){
+        currentTab = TAB_ORDER[newIdx];
+        renderDetail();
+      }
+    }
+  }, {passive:true});
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
