@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>読書帖</title>
 
 <!-- PWA / Add to Home Screen support -->
@@ -316,6 +316,9 @@
     font-size:16px;
     color:var(--muted);
     outline:none;
+    min-height:1.3em;
+    min-width:3em;
+    display:inline-block;
   }
   .item-delete{
     font-size:11px;
@@ -358,13 +361,10 @@
     outline:none;
     flex:1 1 auto;
     min-width:0;
+    min-height:1.3em;
     border-bottom:1px solid transparent;
   }
   .kanji-reading:focus{ border-bottom-color:var(--indigo); }
-  .kanji-reading:empty::before{
-    content:'よみがな';
-    color:#b8b0a0;
-  }
   .kanji-meaning-row{
     display:flex;
     align-items:center;
@@ -376,6 +376,7 @@
     color:var(--muted);
     outline:none;
     min-width:0;
+    min-height:1.3em;
   }
 
   .review-box{
@@ -393,6 +394,7 @@
     outline:none;
   }
   .review-box:focus{ border-color:var(--indigo); }
+  .review-box::placeholder{ font-size:13px; }
   .save-hint{
     font-size:11px;
     color:var(--muted);
@@ -760,7 +762,7 @@
       card.innerHTML = `
         <div class="excerpt-text" contenteditable="true">${escapeHtml(ex.text)}</div>
         <div class="excerpt-foot">
-          <span class="excerpt-page" contenteditable="true">${ex.page ? 'p.'+escapeHtml(ex.page) : 'ページ未記入'}</span>
+          <span class="excerpt-page" contenteditable="true">${ex.page ? 'p.'+escapeHtml(ex.page) : ''}</span>
           <button class="item-delete">削除</button>
         </div>
       `;
@@ -769,8 +771,9 @@
         await saveDetail(currentId);
       });
       card.querySelector('.excerpt-page').addEventListener('blur', async (e)=>{
-        const raw = e.target.textContent.replace(/^p\./,'').replace('ページ未記入','').trim();
+        const raw = e.target.textContent.replace(/^p\./,'').trim();
         ex.page = raw;
+        e.target.textContent = raw ? 'p.'+raw : '';
         await saveDetail(currentId);
       });
       card.querySelector('.item-delete').onclick = async ()=>{
@@ -833,7 +836,7 @@
           <span class="kanji-reading" contenteditable="true">${escapeHtml(kj.reading)}</span>
         </div>
         <div class="kanji-meaning-row">
-          <span class="kanji-meaning" contenteditable="true">${kj.meaning ? escapeHtml(kj.meaning) : '意味を書く'}</span>
+          <span class="kanji-meaning" contenteditable="true">${escapeHtml(kj.meaning || '')}</span>
           <button class="item-delete">削除</button>
         </div>
       `;
@@ -846,13 +849,10 @@
         kj.reading = e.target.textContent.trim();
         await saveDetail(currentId);
       });
-      card.querySelector('.kanji-meaning').addEventListener('focus', (e)=>{
-        if(e.target.textContent==='意味を書く') e.target.textContent='';
-      });
       card.querySelector('.kanji-meaning').addEventListener('blur', async (e)=>{
         const val = e.target.textContent.trim();
         kj.meaning = val;
-        e.target.textContent = val || '意味を書く';
+        e.target.textContent = val;
         await saveDetail(currentId);
       });
       card.querySelector('.item-delete').onclick = async ()=>{
